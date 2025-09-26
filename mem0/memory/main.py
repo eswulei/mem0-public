@@ -46,46 +46,75 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
     user_id: Optional[str] = None,
+    receiver_id: Optional[str] = None,
+    speaker_id: Optional[str] = None,
     agent_id: Optional[str] = None,
     run_id: Optional[str] = None,
     actor_id: Optional[str] = None,  # For query-time filtering
     input_metadata: Optional[Dict[str, Any]] = None,
     input_filters: Optional[Dict[str, Any]] = None,
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    # """
+    # Constructs metadata for storage and filters for querying based on session and actor identifiers.
+    #
+    # This helper supports multiple session identifiers (`user_id`, `agent_id`, and/or `run_id`)
+    # for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
+    #
+    # 1. `base_metadata_template`: Used as a template for metadata when storing new memories.
+    #    It includes all provided session identifier(s) and any `input_metadata`.
+    # 2. `effective_query_filters`: Used for querying existing memories. It includes all
+    #    provided session identifier(s), any `input_filters`, and a resolved actor
+    #    identifier for targeted filtering if specified by any actor-related inputs.
+    #
+    # Actor filtering precedence: explicit `actor_id` arg → `filters["actor_id"]`
+    # This resolved actor ID is used for querying but is not added to `base_metadata_template`,
+    # as the actor for storage is typically derived from message content at a later stage.
+    #
+    # Args:
+    #     user_id (Optional[str]): User identifier, for session scoping.
+    #     agent_id (Optional[str]): Agent identifier, for session scoping.
+    #     run_id (Optional[str]): Run identifier, for session scoping.
+    #     actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
+    #         actor-specific filtering. See actor resolution precedence in the main description.
+    #     input_metadata (Optional[Dict[str, Any]]): Base dictionary to be augmented with
+    #         session identifiers for the storage metadata template. Defaults to an empty dict.
+    #     input_filters (Optional[Dict[str, Any]]): Base dictionary to be augmented with
+    #         session and actor identifiers for query filters. Defaults to an empty dict.
+    #
+    # Returns:
+    #     tuple[Dict[str, Any], Dict[str, Any]]: A tuple containing:
+    #         - base_metadata_template (Dict[str, Any]): Metadata template for storing memories,
+    #           scoped to the provided session(s).
+    #         - effective_query_filters (Dict[str, Any]): Filters for querying memories,
+    #           scoped to the provided session(s) and potentially a resolved actor.
+    # """
     """
-    Constructs metadata for storage and filters for querying based on session and actor identifiers.
+            构建存储元数据与基于会话/执行者标识符的查询过滤器
 
-    This helper supports multiple session identifiers (`user_id`, `agent_id`, and/or `run_id`)
-    for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
+            此工具支持多种会话标识符（`user_id`/`agent_id`/`run_id`）实现灵活会话作用域，
+            并可选择性地通过`actor_id`缩小查询范围。返回两个字典：
 
-    1. `base_metadata_template`: Used as a template for metadata when storing new memories.
-       It includes all provided session identifier(s) and any `input_metadata`.
-    2. `effective_query_filters`: Used for querying existing memories. It includes all
-       provided session identifier(s), any `input_filters`, and a resolved actor
-       identifier for targeted filtering if specified by any actor-related inputs.
+            1. `base_metadata_template`：新记忆存储的元数据模板
+               包含所有提供的会话标识符及输入的`input_metadata`
+            2. `effective_query_filters`：现有记忆查询过滤器
+               包含所有会话标识符、输入的`input_filters`，以及根据执行者参数解析出的目标执行者标识符
 
-    Actor filtering precedence: explicit `actor_id` arg → `filters["actor_id"]`
-    This resolved actor ID is used for querying but is not added to `base_metadata_template`,
-    as the actor for storage is typically derived from message content at a later stage.
+            执行者过滤优先级：显式`actor_id`参数 → `filters["actor_id"]`
+            解析的执行者ID仅用于查询过滤，不加入`base_metadata_template`（存储时的执行者通常后续从消息内容派生）
 
-    Args:
-        user_id (Optional[str]): User identifier, for session scoping.
-        agent_id (Optional[str]): Agent identifier, for session scoping.
-        run_id (Optional[str]): Run identifier, for session scoping.
-        actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
-            actor-specific filtering. See actor resolution precedence in the main description.
-        input_metadata (Optional[Dict[str, Any]]): Base dictionary to be augmented with
-            session identifiers for the storage metadata template. Defaults to an empty dict.
-        input_filters (Optional[Dict[str, Any]]): Base dictionary to be augmented with
-            session and actor identifiers for query filters. Defaults to an empty dict.
+            参数:
+                user_id (Optional[str]): 用户标识符（会话作用域）
+                agent_id (Optional[str]): 智能体标识符（会话作用域）
+                run_id (Optional[str]): 运行标识符（会话作用域）
+                actor_id (Optional[str]): 显式执行者标识符（作为执行者过滤的潜在来源，优先级见主说明）
+                input_metadata (Optional[Dict[str, Any]]): 基础字典，将与会话标识符合并构成存储元数据模板（默认空字典）
+                input_filters (Optional[Dict[str, Any]]): 基础字典，将与会话/执行者标识符合并构成查询过滤器（默认空字典）
 
-    Returns:
-        tuple[Dict[str, Any], Dict[str, Any]]: A tuple containing:
-            - base_metadata_template (Dict[str, Any]): Metadata template for storing memories,
-              scoped to the provided session(s).
-            - effective_query_filters (Dict[str, Any]): Filters for querying memories,
-              scoped to the provided session(s) and potentially a resolved actor.
-    """
+            返回:
+                tuple[Dict[str, Any], Dict[str, Any]]: 包含两个元素的元组：
+                    - base_metadata_template (Dict[str, Any]): 存储记忆的元数据模板（带会话作用域）
+                    - effective_query_filters (Dict[str, Any]): 记忆查询过滤器（带会话作用域及解析的执行者标识符）
+            """
 
     base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
@@ -97,6 +126,16 @@ def _build_filters_and_metadata(
         base_metadata_template["user_id"] = user_id
         effective_query_filters["user_id"] = user_id
         session_ids_provided.append("user_id")
+
+    if receiver_id:
+        base_metadata_template["receiver_id"] = receiver_id
+        effective_query_filters["receiver_id"] = receiver_id
+        session_ids_provided.append("receiver_id")
+
+    if speaker_id:
+        base_metadata_template["speaker_id"] = speaker_id
+        effective_query_filters["speaker_id"] = speaker_id
+        session_ids_provided.append("speaker_id")
 
     if agent_id:
         base_metadata_template["agent_id"] = agent_id
@@ -110,7 +149,7 @@ def _build_filters_and_metadata(
 
     if not session_ids_provided:
         raise Mem0ValidationError(
-            message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
+            message="At least one of 'user_id', 'agent_id','receiver_id', 'speaker_id' or 'run_id' must be provided.",
             error_code="VALIDATION_001",
             details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
             suggestion="Please provide at least one identifier to scope the memory operation."
@@ -197,6 +236,8 @@ class Memory(MemoryBase):
         messages,
         *,
         user_id: Optional[str] = None,
+        receiver_id: Optional[str] = None,
+        speaker_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -204,47 +245,71 @@ class Memory(MemoryBase):
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
     ):
+        # """
+        # Create a new memory.
+        #
+        # Adds new memories scoped to a single session id (e.g. `user_id`, `agent_id`, or `run_id`). One of those ids is required.
+        #
+        # Args:
+        #     messages (str or List[Dict[str, str]]): The message content or list of messages
+        #         (e.g., `[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi"}]`)
+        #         to be processed and stored.
+        #     user_id (str, optional): ID of the user creating the memory. Defaults to None.
+        #     agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
+        #     run_id (str, optional): ID of the run creating the memory. Defaults to None.
+        #     metadata (dict, optional): Metadata to store with the memory. Defaults to None.
+        #     infer (bool, optional): If True (default), an LLM is used to extract key facts from
+        #         'messages' and decide whether to add, update, or delete related memories.
+        #         If False, 'messages' are added as raw memories directly.
+        #     memory_type (str, optional): Specifies the type of memory. Currently, only
+        #         `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
+        #         creating procedural memories (typically requires 'agent_id'). Otherwise, memories
+        #         are treated as general conversational/factual memories.memory_type (str, optional): Type of memory to create. Defaults to None. By default, it creates the short term memories and long term (semantic and episodic) memories. Pass "procedural_memory" to create procedural memories.
+        #     prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+        #
+        #
+        # Returns:
+        #     dict: A dictionary containing the result of the memory addition operation, typically
+        #           including a list of memory items affected (added, updated) under a "results" key,
+        #           and potentially "relations" if graph store is enabled.
+        #           Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
+        #
+        # Raises:
+        #     Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
+        #     VectorStoreError: If vector store operations fail.
+        #     GraphStoreError: If graph store operations fail.
+        #     EmbeddingError: If embedding generation fails.
+        #     LLMError: If LLM operations fail.
+        #     DatabaseError: If database operations fail.
+        # """
         """
-        Create a new memory.
-
-        Adds new memories scoped to a single session id (e.g. `user_id`, `agent_id`, or `run_id`). One of those ids is required.
-
-        Args:
-            messages (str or List[Dict[str, str]]): The message content or list of messages
-                (e.g., `[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi"}]`)
-                to be processed and stored.
-            user_id (str, optional): ID of the user creating the memory. Defaults to None.
-            agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
-            run_id (str, optional): ID of the run creating the memory. Defaults to None.
-            metadata (dict, optional): Metadata to store with the memory. Defaults to None.
-            infer (bool, optional): If True (default), an LLM is used to extract key facts from
-                'messages' and decide whether to add, update, or delete related memories.
-                If False, 'messages' are added as raw memories directly.
-            memory_type (str, optional): Specifies the type of memory. Currently, only
-                `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
-                creating procedural memories (typically requires 'agent_id'). Otherwise, memories
-                are treated as general conversational/factual memories.memory_type (str, optional): Type of memory to create. Defaults to None. By default, it creates the short term memories and long term (semantic and episodic) memories. Pass "procedural_memory" to create procedural memories.
-            prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
-
-
-        Returns:
-            dict: A dictionary containing the result of the memory addition operation, typically
-                  including a list of memory items affected (added, updated) under a "results" key,
-                  and potentially "relations" if graph store is enabled.
-                  Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
-
-        Raises:
-            Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
-            VectorStoreError: If vector store operations fail.
-            GraphStoreError: If graph store operations fail.
-            EmbeddingError: If embedding generation fails.
-            LLMError: If LLM operations fail.
-            DatabaseError: If database operations fail.
-        """
+                创建新记忆记录
+                为单会话ID（如`user_id`、`agent_id`或`run_id`）添加新记忆，必须提供其中至少一个ID
+                参数:
+                    messages (str 或 List[Dict[str, str]]): 待处理的原始消息内容或消息列表
+                        (示例: `[{"role": "user", "content": "你好"}, {"role": "assistant", "content": "您好"}]`)
+                    user_id (str, optional): 创建记忆的用户ID。默认为None。
+                    agent_id (str, optional): 创建记忆的智能体ID。默认为None。
+                    run_id (str, optional): 创建记忆的运行ID。默认为None。
+                    metadata (dict, optional): 随记忆存储的元数据。默认为None。
+                    infer (bool, optional): 设为True（默认）时，使用LLM提取关键事实并决策记忆操作（增/删/改）；
+                        设为False时，直接将原始消息添加为记忆。
+                    memory_type (str, optional): 指定记忆类型。当前仅显式处理
+                        `MemoryType.PROCEDURAL.value` ("procedural_memory")用于创建流程记忆
+                        (通常需提供'agent_id')。未指定时默认创建常规对话/事实记忆。
+                    prompt (str, optional): 记忆创建使用的提示词。默认为None
+                返回:
+                    dict: 包含记忆操作结果的字典，通常包含：
+                          - "results"键：受影响记忆项列表（添加/更新）
+                          - "relations"键（若启用图存储）：关系数据
+                          1.1+版本示例: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
+                """
 
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
+            receiver_id=receiver_id,
+            speaker_id=speaker_id,
             run_id=run_id,
             input_metadata=metadata,
         )
@@ -492,15 +557,24 @@ class Memory(MemoryBase):
         return added_entities
 
     def get(self, memory_id):
+        # """
+        # Retrieve a memory by ID.
+        #
+        # Args:
+        #     memory_id (str): ID of the memory to retrieve.
+        #
+        # Returns:
+        #     dict: Retrieved memory.
+        # """
         """
-        Retrieve a memory by ID.
+                通过ID检索记忆
 
-        Args:
-            memory_id (str): ID of the memory to retrieve.
+                参数:
+                    memory_id (str): 待检索的记忆ID
 
-        Returns:
-            dict: Retrieved memory.
-        """
+                Returns:
+                    dict: 检索到的记忆
+                """
         capture_event("mem0.get", self, {"memory_id": memory_id, "sync_type": "sync"})
         memory = self.vector_store.get(vector_id=memory_id)
         if not memory:
@@ -508,18 +582,23 @@ class Memory(MemoryBase):
 
         promoted_payload_keys = [
             "user_id",
+            "receiver_id",
+            "speaker_id",
             "agent_id",
             "run_id",
             "actor_id",
             "role",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "receiver_id", "speaker_id", "id", *promoted_payload_keys}
+        # core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
 
         result_item = MemoryItem(
             id=memory.id,
             memory=memory.payload["data"],
             hash=memory.payload.get("hash"),
+            receiver_id=memory.payload.get("receiver_id"),
+            speaker_id=memory.payload.get("speaker_id"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
         ).model_dump()
@@ -539,31 +618,51 @@ class Memory(MemoryBase):
         *,
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
+        receiver_id: Optional[str] = None,
+        speaker_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
     ):
+        # """
+        # List all memories.
+        #
+        # Args:
+        #     user_id (str, optional): user id
+        #     agent_id (str, optional): agent id
+        #     run_id (str, optional): run id
+        #     filters (dict, optional): Additional custom key-value filters to apply to the search.
+        #         These are merged with the ID-based scoping filters. For example,
+        #         `filters={"actor_id": "some_user"}`.
+        #     limit (int, optional): The maximum number of memories to return. Defaults to 100.
+        #
+        # Returns:
+        #     dict: A dictionary containing a list of memories under the "results" key,
+        #           and potentially "relations" if graph store is enabled. For API v1.0,
+        #           it might return a direct list (see deprecation warning).
+        #           Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
+        # """
         """
-        List all memories.
+                列出所有记忆
 
-        Args:
-            user_id (str, optional): user id
-            agent_id (str, optional): agent id
-            run_id (str, optional): run id
-            filters (dict, optional): Additional custom key-value filters to apply to the search.
-                These are merged with the ID-based scoping filters. For example,
-                `filters={"actor_id": "some_user"}`.
-            limit (int, optional): The maximum number of memories to return. Defaults to 100.
+                参数:
+                    user_id (str, optional): 用户ID
+                    agent_id (str, optional): 智能体ID
+                    run_id (str, optional): 运行ID
+                    filters (dict, optional): 自定义键值对过滤条件，将与ID作用域过滤器合并
+                        示例: `filters={"actor_id": "特定用户"}`
+                    limit (int, optional): 返回记忆记录的最大数量（默认值：100）
 
-        Returns:
-            dict: A dictionary containing a list of memories under the "results" key,
-                  and potentially "relations" if graph store is enabled. For API v1.0,
-                  it might return a direct list (see deprecation warning).
-                  Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
-        """
+                返回:
+                    dict: 包含记忆列表的字典：
+                          - "results"键：记忆记录列表
+                          - "relations"键（若启用图存储）：关系数据
+                          v1.0版本可能直接返回列表（已弃用）
+                          v1.1+版本示例: `{"results": [{"id": "...", "memory": "...", ...}]}`
+                """
 
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id, receiver_id=receiver_id, speaker_id= speaker_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
 
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
@@ -612,12 +711,14 @@ class Memory(MemoryBase):
 
         promoted_payload_keys = [
             "user_id",
+            "receiver_id",
+            "speaker_id",
             "agent_id",
             "run_id",
             "actor_id",
             "role",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at","receiver_id", "speaker_id", "id", *promoted_payload_keys}
 
         formatted_memories = []
         for mem in actual_memories:
@@ -625,6 +726,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload["data"],
                 hash=mem.payload.get("hash"),
+                receiver_id=mem.payload.get("receiver_id"),
+                speaker_id=mem.payload.get("speaker_id"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
             ).model_dump(exclude={"score"})
@@ -647,33 +750,53 @@ class Memory(MemoryBase):
         *,
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
+        receiver_id: Optional[str] = None,
+        speaker_id: Optional[str] = None,
         run_id: Optional[str] = None,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
     ):
+        # """
+        # Searches for memories based on a query
+        # Args:
+        #     query (str): Query to search for.
+        #     user_id (str, optional): ID of the user to search for. Defaults to None.
+        #     agent_id (str, optional): ID of the agent to search for. Defaults to None.
+        #     run_id (str, optional): ID of the run to search for. Defaults to None.
+        #     limit (int, optional): Limit the number of results. Defaults to 100.
+        #     filters (dict, optional): Filters to apply to the search. Defaults to None..
+        #     threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
+        #
+        # Returns:
+        #     dict: A dictionary containing the search results, typically under a "results" key,
+        #           and potentially "relations" if graph store is enabled.
+        #           Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
+        # """
         """
-        Searches for memories based on a query
-        Args:
-            query (str): Query to search for.
-            user_id (str, optional): ID of the user to search for. Defaults to None.
-            agent_id (str, optional): ID of the agent to search for. Defaults to None.
-            run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
-            filters (dict, optional): Filters to apply to the search. Defaults to None..
-            threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
+                基于查询条件搜索记忆记录
 
-        Returns:
-            dict: A dictionary containing the search results, typically under a "results" key,
-                  and potentially "relations" if graph store is enabled.
-                  Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
-        """
+                参数:
+                    query (str): 搜索查询语句
+                    user_id (str, optional): 目标用户ID（默认None）
+                    agent_id (str, optional): 目标智能体ID（默认None）
+                    run_id (str, optional): 目标运行ID（默认None）
+                    limit (int, optional): 返回结果数量限制（默认100）
+                    filters (dict, optional): 附加过滤条件（默认None）
+                    threshold (float, optional): 结果最低匹配分数阈值（默认None）
+
+                返回:
+                    dict: 包含搜索结果的字典：
+                          - "results"键：匹配的记忆记录列表
+                          - "relations"键（若启用图存储）：关系数据
+                          v1.1+版本示例: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
+                """
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id,receiver_id=receiver_id, speaker_id=speaker_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
 
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id", "receiver_id", "speaker_id")):
+            raise ValueError("At least one of 'user_id', 'agent_id', 'receiver_id', 'speaker_id' or 'run_id' must be specified.")
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -723,19 +846,23 @@ class Memory(MemoryBase):
 
         promoted_payload_keys = [
             "user_id",
+            "receiver_id",
+            "speaker_id",
             "agent_id",
             "run_id",
             "actor_id",
             "role",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at","receiver_id", "speaker_id",  "id", *promoted_payload_keys}
 
         original_memories = []
         for mem in memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload["data"],
+                receiver_id=mem.payload.get("receiver_id"),
+                speaker_id=mem.payload.get("speaker_id"),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -756,20 +883,30 @@ class Memory(MemoryBase):
         return original_memories
 
     def update(self, memory_id, data):
+        # """
+        # Update a memory by ID.
+        #
+        # Args:
+        #     memory_id (str): ID of the memory to update.
+        #     data (str): New content to update the memory with.
+        #
+        # Returns:
+        #     dict: Success message indicating the memory was updated.
+        #
+        # Example:
+        #     >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+        #     {'message': 'Memory updated successfully!'}
+        # """
         """
-        Update a memory by ID.
+                通过ID更新记忆记录
 
-        Args:
-            memory_id (str): ID of the memory to update.
-            data (str): New content to update the memory with.
+                参数:
+                    memory_id (str): 待更新的记忆ID
+                    data (dict): 用于更新的数据字典
 
-        Returns:
-            dict: Success message indicating the memory was updated.
-
-        Example:
-            >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
-            {'message': 'Memory updated successfully!'}
-        """
+                返回:
+                    dict: 更新后的记忆记录
+                """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
@@ -778,30 +915,50 @@ class Memory(MemoryBase):
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
+        # """
+        # Delete a memory by ID.
+        #
+        # Args:
+        #     memory_id (str): ID of the memory to delete.
+        # """
         """
-        Delete a memory by ID.
+                通过ID删除一条数据
 
-        Args:
-            memory_id (str): ID of the memory to delete.
-        """
+                参数:
+                    memory_id (str): 待删除的记忆ID
+                """
+
         capture_event("mem0.delete", self, {"memory_id": memory_id, "sync_type": "sync"})
         self._delete_memory(memory_id)
         return {"message": "Memory deleted successfully!"}
 
-    def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
+    def delete_all(self, user_id: Optional[str] = None, receiver_id: Optional[str] = None, speaker_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
+        # """
+        # Delete all memories.
+        #
+        # Args:
+        #     user_id (str, optional): ID of the user to delete memories for. Defaults to None.
+        #     agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
+        #     run_id (str, optional): ID of the run to delete memories for. Defaults to None.
+        # """
         """
-        Delete all memories.
+              删除所有记忆
 
-        Args:
-            user_id (str, optional): ID of the user to delete memories for. Defaults to None.
-            agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
-            run_id (str, optional): ID of the run to delete memories for. Defaults to None.
-        """
+              参数:
+                  user_id (str, optional): 目标用户ID（默认值：None）
+                  agent_id (str, optional): 目标智能体ID（默认值：None）
+                  run_id (str, optional): 目标运行ID（默认值：None）
+              """
+
         filters: Dict[str, Any] = {}
         if user_id:
             filters["user_id"] = user_id
         if agent_id:
             filters["agent_id"] = agent_id
+        if receiver_id:
+            filters["receiver_id"] = receiver_id
+        if speaker_id:
+            filters["speaker_id"] = speaker_id
         if run_id:
             filters["run_id"] = run_id
 
@@ -826,15 +983,24 @@ class Memory(MemoryBase):
         return {"message": "Memories deleted successfully!"}
 
     def history(self, memory_id):
+        # """
+        # Get the history of changes for a memory by ID.
+        #
+        # Args:
+        #     memory_id (str): ID of the memory to get history for.
+        #
+        # Returns:
+        #     list: List of changes for the memory.
+        # """
         """
-        Get the history of changes for a memory by ID.
+               通过ID获取记忆记录的变更历史
 
-        Args:
-            memory_id (str): ID of the memory to get history for.
+               参数:
+                   memory_id (str): 目标记忆记录的ID
 
-        Returns:
-            list: List of changes for the memory.
-        """
+               返回:
+                   list: 该记忆记录的变更历史列表
+               """
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return self.db.get_history(memory_id)
 
@@ -868,14 +1034,22 @@ class Memory(MemoryBase):
         return memory_id
 
     def _create_procedural_memory(self, messages, metadata=None, prompt=None):
+        # """
+        # Create a procedural memory
+        #
+        # Args:
+        #     messages (list): List of messages to create a procedural memory from.
+        #     metadata (dict): Metadata to create a procedural memory from.
+        #     prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
+        # """
         """
-        Create a procedural memory
+                创建流程记忆记录
 
-        Args:
-            messages (list): List of messages to create a procedural memory from.
-            metadata (dict): Metadata to create a procedural memory from.
-            prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
-        """
+                参数:
+                    messages (list): 用于创建流程记忆的消息列表
+                    metadata (dict): 用于创建流程记忆的元数据字典
+                    prompt (str, optional): 流程记忆创建使用的提示词（默认值：None）
+                """
         logger.info("Creating procedural memory")
 
         parsed_messages = [
@@ -883,7 +1057,7 @@ class Memory(MemoryBase):
             *messages,
             {
                 "role": "user",
-                "content": "Create procedural memory of the above conversation.",
+                "content": "创建上述对话的流程记忆。",
             },
         ]
 
@@ -977,12 +1151,18 @@ class Memory(MemoryBase):
         return memory_id
 
     def reset(self):
+        # """
+        # Reset the memory store by:
+        #     Deletes the vector store collection
+        #     Resets the database
+        #     Recreates the vector store with a new client
+        # """
         """
-        Reset the memory store by:
-            Deletes the vector store collection
-            Resets the database
-            Recreates the vector store with a new client
-        """
+                重置记忆存储，操作包括：
+                    删除向量存储集合
+                    重置数据库
+                    使用新客户端重建向量存储
+                """
         logger.warning("Resetting all memories")
 
         if hasattr(self.db, "connection") and self.db.connection:
@@ -1080,23 +1260,42 @@ class AsyncMemory(MemoryBase):
         prompt: Optional[str] = None,
         llm=None,
     ):
+        # """
+        # Create a new memory asynchronously.
+        #
+        # Args:
+        #     messages (str or List[Dict[str, str]]): Messages to store in the memory.
+        #     user_id (str, optional): ID of the user creating the memory.
+        #     agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
+        #     run_id (str, optional): ID of the run creating the memory. Defaults to None.
+        #     metadata (dict, optional): Metadata to store with the memory. Defaults to None.
+        #     infer (bool, optional): Whether to infer the memories. Defaults to True.
+        #     memory_type (str, optional): Type of memory to create. Defaults to None.
+        #                                  Pass "procedural_memory" to create procedural memories.
+        #     prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+        #     llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+        # Returns:
+        #     dict: A dictionary containing the result of the memory addition operation.
+        # """
         """
-        Create a new memory asynchronously.
+                异步创建新记忆记录
 
-        Args:
-            messages (str or List[Dict[str, str]]): Messages to store in the memory.
-            user_id (str, optional): ID of the user creating the memory.
-            agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
-            run_id (str, optional): ID of the run creating the memory. Defaults to None.
-            metadata (dict, optional): Metadata to store with the memory. Defaults to None.
-            infer (bool, optional): Whether to infer the memories. Defaults to True.
-            memory_type (str, optional): Type of memory to create. Defaults to None.
-                                         Pass "procedural_memory" to create procedural memories.
-            prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
-            llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
-        Returns:
-            dict: A dictionary containing the result of the memory addition operation.
-        """
+                参数:
+                    messages (str 或 List[Dict[str, str]]): 待存储的消息内容或消息列表
+                    user_id (str, optional): 创建记忆的用户ID（默认值：None）
+                    agent_id (str, optional): 创建记忆的智能体ID（默认值：None）
+                    run_id (str, optional): 创建记忆的运行ID（默认值：None）
+                    metadata (dict, optional): 随记忆存储的元数据（默认值：None）
+                    infer (bool, optional): 是否进行记忆推理（默认值：True）
+                    memory_type (str, optional): 记忆类型（默认值：None）
+                                             传递"procedural_memory"创建流程记忆
+                    prompt (str, optional): 记忆创建提示词（默认值：None）
+                    llm (BaseChatModel, optional): 用于生成流程记忆的LLM类（默认值：None）
+                                                适用于使用LangChain聊天模型的场景
+
+                返回:
+                    dict: 包含记忆添加操作结果的字典
+                """
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
@@ -1372,18 +1571,22 @@ class AsyncMemory(MemoryBase):
 
         promoted_payload_keys = [
             "user_id",
+            "receiver_id",
+            "speaker_id",
             "agent_id",
             "run_id",
             "actor_id",
             "role",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at","receiver_id", "speaker_id",  "id", *promoted_payload_keys}
 
         result_item = MemoryItem(
             id=memory.id,
             memory=memory.payload["data"],
             hash=memory.payload.get("hash"),
+            receiver_id=memory.payload.get("receiver_id"),
+            speaker_id=memory.payload.get("speaker_id"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
         ).model_dump()
@@ -1482,11 +1685,13 @@ class AsyncMemory(MemoryBase):
         promoted_payload_keys = [
             "user_id",
             "agent_id",
+            "receiver_id",
+            "speaker_id",
             "run_id",
             "actor_id",
             "role",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at","receiver_id", "speaker_id",  "id", *promoted_payload_keys}
 
         formatted_memories = []
         for mem in actual_memories:
@@ -1494,6 +1699,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload["data"],
                 hash=mem.payload.get("hash"),
+                receiver_id=mem.payload.get("receiver_id"),
+                speaker_id=mem.payload.get("speaker_id"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
             ).model_dump(exclude={"score"})
@@ -1517,6 +1724,8 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        receiver_id: Optional[str] = None,
+        speaker_id: Optional[str] = None,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
@@ -1542,8 +1751,8 @@ class AsyncMemory(MemoryBase):
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
 
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("at least one of 'user_id', 'agent_id', or 'run_id' must be specified ")
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id", "receiver_id", "speaker_id")):
+            raise ValueError("at least one of 'user_id', 'agent_id', or 'run_id' , 'receiver_id', 'speaker_id'must be specified ")
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -1598,18 +1807,22 @@ class AsyncMemory(MemoryBase):
         promoted_payload_keys = [
             "user_id",
             "agent_id",
+            "receiver_id",
+            "speaker_id",
             "run_id",
             "actor_id",
             "role",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at","receiver_id", "speaker_id", "id", *promoted_payload_keys}
 
         original_memories = []
         for mem in memories:
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload["data"],
+                receiver_id=mem.payload.get("receiver_id"),
+                speaker_id=mem.payload.get("speaker_id"),
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
@@ -1774,7 +1987,7 @@ class AsyncMemory(MemoryBase):
         parsed_messages = [
             {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
             *messages,
-            {"role": "user", "content": "Create procedural memory of the above conversation."},
+            {"role": "user", "content": "创建上述对话的流程记忆"},
         ]
 
         try:

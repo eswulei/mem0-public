@@ -18,6 +18,8 @@ class MemoryItem(BaseModel):
     memory: str = Field(
         ..., description="The memory deduced from the text data"
     )  # TODO After prompt changes from platform, update this
+    receiver_id: str = Field(..., description="The receiver_id of the conversation.")
+    speaker_id: str = Field(..., description="The speaker_id of the conversation.")
     hash: Optional[str] = Field(None, description="The hash of the memory")
     # The metadata value can be anything and not just string. Fix it
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata for the text data")
