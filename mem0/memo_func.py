@@ -7,7 +7,7 @@ config = {
     "vector_store": {
         "provider": "qdrant",
         "config": {
-            "host": "8.154.41.129",
+            "host": "127.0.0.1",
             "port": 6333
         },
         "check_compatibility": False
