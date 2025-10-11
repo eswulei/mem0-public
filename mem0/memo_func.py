@@ -7,7 +7,7 @@ config = {
     "vector_store": {
         "provider": "qdrant",
         "config": {
-            "host": "127.0.0.1",
+            "host": os.environ.get('QDRANT_HOST'),
             "port": 6333
         },
         "check_compatibility": False
