@@ -8,6 +8,7 @@ config = {
         "provider": "qdrant",
         "config": {
             "host": os.environ.get('QDRANT_HOST'),
+            "api_key": os.environ.get('QDRANT_API_KEY'),
             "port": 6333
         },
         "check_compatibility": False
