@@ -27,7 +27,7 @@ FACT_RETRIEVAL_PROMPT = f"""你是一个个人信息管理专家，专注于准�
 需记忆的信息类型：
 
 1. 存储个人偏好：记录各类喜好、厌恶及特定偏好（如饮食、商品、活动、娱乐）
-2. 维护重要个人详情：记忆关键个人信息（如姓名、人际关系、重要日期）
+2. 维护重要个人详情：记忆关键个人信息（如人际关系、重要日期）
 3. 追踪计划与意图：记录未来事件、旅行安排、目标及用户分享的计划
 4. 记忆活动服务偏好：存储用餐、旅行、爱好等服务偏好
 5. 监测健康习惯：记录饮食限制、健身计划等健康相关信息
@@ -36,23 +36,23 @@ FACT_RETRIEVAL_PROMPT = f"""你是一个个人信息管理专家，专注于准�
 
 参考示例：
 
-输入：Hi.
+输入：小明：你好
 输出：{{"facts" : []}}
 
-输入：There are branches in trees.
+输入：小红：我刚才看到一棵大树
 输出：{{"facts" : []}}
 
-输入：Hi, I am looking for a restaurant in San Francisco.
-输出：{{"facts" : ["Looking for a restaurant in San Francisco"]}}
+输入：小白：你好，我在找附近的餐厅
+输出：{{"facts" : ["小白正在找附近的餐厅"]}}
 
-输入：Yesterday, I had a meeting with John at 3pm. We discussed the new project.
-输出：{{"facts" : ["Had a meeting with John at 3pm", "Discussed the new project"]}}
+输入：小绿：我明天和小明要开会，后天要和小红去游乐园
+输出：{{"facts" : ["小绿明天要和小明开会", "小绿后天要和小红去游乐园"]}}
 
-输入：Hi, my name is John. I am a software engineer.
-输出：{{"facts" : ["Name is John", "Is a Software engineer"]}}
+输入：小黑：你好，我是小黑，喜欢吃苹果，是一名老师
+输出：{{"facts" : ["小黑喜欢吃苹果", "小黑是一名老师"]}}
 
-输入：Me favourite movies are Inception and Interstellar.
-输出：{{"facts" : ["Favourite movies are Inception and Interstellar"]}}
+输入：小紫：我最喜欢的小说是《三体》和《活着》
+输出：{{"facts" : ["小紫最喜欢的小说是《三体》和《活着》"]}}
 
 严格按上述JSON格式返回事实与偏好。
 
@@ -118,7 +118,7 @@ FACT_RETRIEVAL_PROMPT = f"""你是一个个人信息管理专家，专注于准�
 # """
 
 
-DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控制系统记忆。
+DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能体记忆管理器，负责控制一个智能体的记忆。
 你可以执行四种操作：(1) 添加到记忆, (2) 更新记忆, (3) 删除记忆, (4) 无变更。
 
 基于上述四种操作，记忆状态将发生变化。
@@ -140,7 +140,7 @@ DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控�
                    "text" : "小明是位软件工程师"
                }
            ]
-       - 获取事实：["小明：小红是我的女朋友"]
+       - 获取事实：["小红是小明的女朋友"]
        - 新记忆：
            {
                "memory" : [
@@ -158,8 +158,8 @@ DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控�
            }
 
 2. **更新(UPDATE)**：若获取的事实与记忆信息主题相同但内容不同则更新；若信息本质相同则保留信息量更大的版本
-   a) 记忆含"木木喜欢玩电子游戏"，新事实为"木木：我喜欢和朋友玩电子游戏" → 更新
-   b) 记忆含"木木喜欢吃苹果"，新事实为"木木：我喜爱苹果" → 不更新（本质相同）
+   a) 记忆含"木木喜欢玩电子游戏"，新事实为"木木喜欢和朋友玩电子游戏" → 更新
+   b) 记忆含"木木喜欢吃苹果"，新事实为"木木喜爱苹果" → 不更新（本质相同）
    **更新时必须保留原ID，输出仅允许使用输入ID**
    - **示例**：
        - 旧记忆：
@@ -177,7 +177,7 @@ DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控�
                    "text" : "木木喜欢玩电子游戏"
                }
            ]
-       - 获取事实：["木木：我喜欢吃葡萄", "木木：我还喜欢和朋友玩电子游戏"]
+       - 获取事实：["木木喜欢吃葡萄", "木木喜欢和朋友玩电子游戏"]
        - 新记忆：
            {
            "memory" : [
@@ -215,7 +215,7 @@ DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控�
                    "text" : "木木喜欢吃苹果"
                }
            ]
-       - 获取事实：["木木：我不喜欢吃苹果"]
+       - 获取事实：["木木不喜欢吃苹果"]
        - 新记忆：
            {
            "memory" : [
@@ -245,7 +245,7 @@ DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控�
                    "text" : "木木喜欢吃苹果"
                }
            ]
-       - 获取事实：["木木：我爱吃苹果"]
+       - 获取事实：["木木爱吃苹果"]
        - 新记忆：
            {
            "memory" : [
