@@ -119,7 +119,7 @@ FACT_RETRIEVAL_PROMPT = f"""你是一个个人信息管理专家，专注于准�
 
 
 DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控制系统记忆。
-你可以执行四种操作：(1) 添加到记忆, (2) 更新记忆, (3) 从记忆删除, (4) 无变更。
+你可以执行四种操作：(1) 添加到记忆, (2) 更新记忆, (3) 删除记忆, (4) 无变更。
 
 基于上述四种操作，记忆状态将发生变化。
 
@@ -131,72 +131,72 @@ DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控�
 
 操作选择遵循特定准则：
 
-1. **添加(ADD)**：若获取的事实包含记忆中不存在的新信息，则需生成新ID添加
+1. **添加(ADD)**：若获取的事实包含记忆中不存在的新信息，则需生成新ID添加，若有相关的人物，所添加记忆必须带有名字
    - **示例**：
        - 旧记忆：
            [
                {
                    "id" : "0",
-                   "text" : "User is a software engineer"
+                   "text" : "小明是位软件工程师"
                }
            ]
-       - 获取事实：["Name is John"]
+       - 获取事实：["小明：小红是我的女朋友"]
        - 新记忆：
            {
                "memory" : [
                    {
                        "id" : "0",
-                       "text" : "User is a software engineer",
+                       "text" : "小明是位软件工程师",
                        "event" : "NONE"
                    },
                    {
                        "id" : "1",
-                       "text" : "Name is John",
+                       "text" : "小红是小明的女朋友",
                        "event" : "ADD"
                    }
                ]
            }
 
 2. **更新(UPDATE)**：若获取的事实与记忆信息主题相同但内容不同则更新；若信息本质相同则保留信息量更大的版本
-   a) 记忆含"User likes to play cricket"，新事实为"Loves to play cricket with friends" → 更新
-   b) 记忆含"Likes cheese pizza"，新事实为"Loves cheese pizza" → 不更新（本质相同）
+   a) 记忆含"木木喜欢玩电子游戏"，新事实为"木木：我喜欢和朋友玩电子游戏" → 更新
+   b) 记忆含"木木喜欢吃苹果"，新事实为"木木：我喜爱苹果" → 不更新（本质相同）
    **更新时必须保留原ID，输出仅允许使用输入ID**
    - **示例**：
        - 旧记忆：
            [
                {
                    "id" : "0",
-                   "text" : "I really like cheese pizza"
+                   "text" : "木木喜欢吃苹果"
                },
                {
                    "id" : "1",
-                   "text" : "User is a software engineer"
+                   "text" : "木木是位老师"
                },
                {
                    "id" : "2",
-                   "text" : "User likes to play cricket"
+                   "text" : "木木喜欢玩电子游戏"
                }
            ]
-       - 获取事实：["Loves chicken pizza", "Loves to play cricket with friends"]
+       - 获取事实：["木木：我喜欢吃葡萄", "木木：我还喜欢和朋友玩电子游戏"]
        - 新记忆：
            {
            "memory" : [
                    {
                        "id" : "0",
-                       "text" : "Loves cheese and chicken pizza",
+                       "text" : "木木喜欢吃苹果和葡萄",
                        "event" : "UPDATE",
-                       "old_memory" : "I really like cheese pizza"
+                       "old_memory" : "木木喜欢吃苹果"
                    },
                    {
                        "id" : "1",
-                       "text" : "User is a software engineer",
+                       "text" : "木木是位老师",
                        "event" : "NONE"
                    },
                    {
                        "id" : "2",
-                       "text" : "Loves to play cricket with friends",
+                       "text" : "木木喜欢和朋友玩电子游戏",
                        "event" : "UPDATE",
-                       "old_memory" : "User likes to play cricket"
+                       "old_memory" : "木木喜欢玩电子游戏"
                    }
                ]
            }
@@ -208,55 +208,55 @@ DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个智能记忆管理器，负责控�
            [
                {
                    "id" : "0",
-                   "text" : "Name is John"
+                   "text" : "木木是位老师"
                },
                {
                    "id" : "1",
-                   "text" : "Loves cheese pizza"
+                   "text" : "木木喜欢吃苹果"
                }
            ]
-       - 获取事实：["Dislikes cheese pizza"]
+       - 获取事实：["木木：我不喜欢吃苹果"]
        - 新记忆：
            {
            "memory" : [
                    {
                        "id" : "0",
-                       "text" : "Name is John",
+                       "text" : "木木是位老师",
                        "event" : "NONE"
                    },
                    {
                        "id" : "1",
-                       "text" : "Loves cheese pizza",
+                       "text" : "木木喜欢吃苹果",
                        "event" : "DELETE"
                    }
            ]
            }
 
-4. **无变更(NONE)**：若获取的事实已存在于记忆中则不执行变更
+4. **无变更(NONE)**：若获取的事实已存在于记忆中，或信息中不含需要记忆的内容时则不执行变更
    - **示例**：
        - 旧记忆：
            [
                {
                    "id" : "0",
-                   "text" : "Name is John"
+                   "text" : "木木是位老师"
                },
                {
                    "id" : "1",
-                   "text" : "Loves cheese pizza"
+                   "text" : "木木喜欢吃苹果"
                }
            ]
-       - 获取事实：["Name is John"]
+       - 获取事实：["木木：我爱吃苹果"]
        - 新记忆：
            {
            "memory" : [
                    {
                        "id" : "0",
-                       "text" : "Name is John",
+                       "text" : "木木是位老师",
                        "event" : "NONE"
                    },
                    {
                        "id" : "1",
-                       "text" : "Loves cheese pizza",
+                       "text" : "木木喜欢吃苹果",
                        "event" : "NONE"
                    }
                ]
