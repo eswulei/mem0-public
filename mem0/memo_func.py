@@ -17,7 +17,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "qwen-plus-2025-04-28",
+            "model": "qwen-plus",
             "openai_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",  # Custom base URL
             "temperature": 0.2,
             "max_tokens": 2000,
